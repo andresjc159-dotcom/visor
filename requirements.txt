@@ -1,0 +1,9 @@
+flask
+flask-cors
+selenium
+webdriver-manager
+google-generative-ai
+python-dotenv
+pillow
+numpy
+pydicom

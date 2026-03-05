@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>TRAUMA AI</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://unpkg.com/hammerjs@2.0.8/hammer.js"></script>
+    <script src="https://unpkg.com/dicom-parser"></script>
+    <script src="https://unpkg.com/cornerstone-core"></script>
+    <script src="https://unpkg.com/cornerstone-math"></script>
+    <script src="https://unpkg.com/cornerstone-wado-image-loader"></script>
+    <script src="https://unpkg.com/cornerstone-tools"></script>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand">TRAUMA AI</div>
+        <div class="patient-data">
+            <div><span id="pName">---</span></div>
+            <div>ID: <span id="pId">---</span></div>
+            <div><span id="pAge">--</span> <span id="pSex">--</span></div>
+        </div>
+        <button onclick="toggleReport()" style="background:var(--accent); border:none; padding:5px 15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px; border-radius:3px;">
+            <i class="material-icons" style="font-size:1.1rem">notes</i> REPORTE
+        </button>
+    </div>
+
+    <div class="toolbar">
+        <button class="tool-btn active" id="btn_Wwwc" onclick="activarHerramienta('Wwwc', this)" title="Contraste"><i class="material-icons">brightness_6</i></button>
+        <button class="tool-btn" id="btn_Zoom" onclick="activarHerramienta('Zoom', this)" title="Zoom"><i class="material-icons">zoom_in</i></button>
+        <button class="tool-btn" id="btn_Pan" onclick="activarHerramienta('Pan', this)" title="Mover"><i class="material-icons">open_with</i></button>
+        
+        <div style="width:1px; height:25px; background:#333; margin:0 5px;"></div>
+        
+        <button class="tool-btn" id="btn_Length" onclick="activarHerramienta('Length', this)" title="Medir Longitud"><i class="material-icons">straighten</i></button>
+        <button class="tool-btn" id="btn_Angle" onclick="activarHerramienta('Angle', this)" title="Medir Ángulo"><i class="material-icons">square_foot</i></button>
+        <button class="tool-btn" id="btn_Probe" onclick="activarHerramienta('Probe', this)" title="Valor del Píxel"><i class="material-icons">colorize</i></button>
+        <button class="tool-btn" id="btn_Eraser" onclick="activarHerramienta('Eraser', this)" title="Borrar Medición"><i class="material-icons">delete_sweep</i></button>
+
+        <div style="width:1px; height:25px; background:#333; margin:0 5px;"></div>
+
+        <button class="tool-btn" onclick="accion('invert')" title="Invertir"><i class="material-icons">invert_colors</i></button>
+        <button class="tool-btn" onclick="accion('reset')" title="Reiniciar"><i class="material-icons">restart_alt</i></button>
+    </div>
+
+    <div class="main">
+        <div class="sidebar" id="seriesList"></div>
+        <div class="viewer">
+            <div id="dicomImage" class="viewport" oncontextmenu="return false"></div>
+            <div class="overlay tl">TRAUMA AI</div>
+            <div class="overlay bl" id="overlaySlice">Img: -/-</div>
+        </div>
+        <div class="report-drawer" id="reportDrawer">
+            <div class="report-header">
+                HALLAZGOS
+                <i class="material-icons" style="cursor:pointer" onclick="toggleReport()">close</i>
+            </div>
+            <div class="report-content" id="aiContent">Cargando...</div>
+        </div>
+    </div>
+
+    <div class="modal" id="startupModal">
+        <div class="modal-box">
+            <h3>Cargar Estudio</h3>
+            <input type="text" id="urlInput" placeholder="Enlace del visor...">
+            <button onclick="iniciarCargaManual()">PROCESAR</button>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+        <div class="loader-content">
+            <div class="pulse-logo">TRAUMA AI</div>
+            <div class="loading-bar-container">
+                <div id="progressBar" class="loading-bar"></div>
+            </div>
+            <p id="loadingText" class="loading-text">Iniciando...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
