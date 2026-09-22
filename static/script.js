@@ -39,7 +39,7 @@ function iniciarCargaManual() {
     iniciarCarga();
 }
 
-// --- 3. LÓGICA PRINCIPAL DE CARGA (STREAMING) ---
+// --- 3. LÓGICA PRINCIPAL DE CARGA (STREAMING CORREGIDO) ---
 async function iniciarCarga() {
     const url = document.getElementById('urlInput').value;
     if(!url) return;
@@ -56,29 +56,59 @@ async function iniciarCarga() {
         // Leer el stream de datos
         const reader = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
+        
+        let buffer = ''; // Búfer para acumular los pedazos cortados
         let finalData = null;
 
         while (true) {
             const { value, done } = await reader.read();
             if (done) break;
             
-            const chunk = decoder.decode(value, {stream: true});
-            const lines = chunk.split('\n');
+            // 1. Añadimos el nuevo pedazo al búfer acumulado
+            buffer += decoder.decode(value, { stream: true });
             
+            // 2. Separamos por saltos de línea
+            const lines = buffer.split('\n');
+            
+            // 3. Extraemos la última línea (que probablemente esté incompleta) 
+            // y la dejamos en el búfer para el siguiente ciclo del while
+            buffer = lines.pop(); 
+            
+            // 4. Procesamos solo las líneas que estamos seguros que están completas
             for (let line of lines) {
                 if (line.trim() !== '') {
-                    const data = JSON.parse(line);
-                    
-                    if (data.error) throw new Error(data.error);
-                    
-                    if (data.progress) {
-                        actualizarProgreso(data.progress, data.message);
-                    }
-                    
-                    if (data.report && data.series) {
-                        finalData = data; // Guardar datos finales cuando lleguen
+                    try {
+                        const data = JSON.parse(line);
+                        
+                        if (data.error) throw new Error(data.error);
+                        
+                        if (data.progress) {
+                            actualizarProgreso(data.progress, data.message);
+                        }
+                        
+                        if (data.series) {
+                            finalData = data; // Guardar datos finales cuando lleguen
+                        }
+                    } catch (parseError) {
+                        // Si el error es del servidor, lo lanzamos. Si es de parseo, lo ignoramos y seguimos.
+                        if (parseError.message === JSON.parse(line).error) throw parseError;
+                        console.warn("Fragmento JSON saltado:", parseError);
                     }
                 }
+            }
+        }
+
+        // --- EL BLINDAJE FINAL ---
+        // Si quedó algo en el búfer al terminar la conexión, procésalo.
+        if (buffer.trim() !== '') {
+            try {
+                const data = JSON.parse(buffer);
+                if (data.error) throw new Error(data.error);
+                if (data.series) {
+                    finalData = data;
+                }
+            } catch (e) {
+                console.error("Error en el último fragmento:", e);
             }
         }
 
@@ -89,11 +119,8 @@ async function iniciarCarga() {
         document.getElementById('pId').innerText = finalData.patient.id || "---";
         document.getElementById('pAge').innerText = finalData.patient.edad || "--";
         document.getElementById('pSex').innerText = finalData.patient.sexo || "--";
-        
-        document.getElementById('aiContent').innerHTML = formatMarkdown(finalData.report);
-        if(finalData.report && finalData.report.length > 50) {
-            document.getElementById('reportDrawer').classList.add('open');
-        }
+
+        renderReport(finalData.report, finalData.ai_error);
 
         actualizarProgreso(100, "Generando miniaturas visuales...");
 
@@ -152,8 +179,12 @@ async function iniciarCarga() {
 
     } catch (e) {
         console.error(e);
-        actualizarProgreso(100, "Error crítico.");
-        setTimeout(() => { ocultarCarga(); alert(e.message); }, 2000);
+        actualizarProgreso(100, "No se pudo cargar el estudio.");
+        setTimeout(() => {
+            ocultarCarga();
+            toast(e.message || "No se pudo cargar el estudio.", 'error');
+            document.getElementById('startupModal').style.display = 'flex';
+        }, 600);
     }
 }
 
@@ -243,12 +274,49 @@ function toggleReport() {
     drawer.classList.toggle('open');
 }
 
+function abrirModal() {
+    document.getElementById('startupModal').style.display = 'flex';
+    document.getElementById('urlInput').focus();
+}
+
+function escapeHtml(s) {
+    if(!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function formatMarkdown(text) {
-    if(!text) return "Sin análisis.";
-    return text
-        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-        .replace(/\n/g, '<br>')
-        .replace(/- /g, '• ');
+    if(!text) return "";
+    return escapeHtml(text)
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+        .replace(/\n\n/g, '<br><br>')
+        .replace(/\n/g, '<br>');
+}
+
+function renderReport(report, aiError) {
+    const content = document.getElementById('aiContent');
+    if(report && report.trim()) {
+        content.innerHTML = formatMarkdown(report);
+        if(report.length > 50) {
+            document.getElementById('reportDrawer').classList.add('open');
+        }
+    } else {
+        const motivo = aiError || "Análisis con IA no disponible.";
+        content.innerHTML = '<div class="ai-empty"><i class="material-icons">info_outline</i><p>' + escapeHtml(motivo) + '</p></div>';
+        if(aiError) toast(motivo, 'warning');
+    }
+}
+
+function toast(msg, tipo) {
+    tipo = tipo || 'info';
+    const cont = document.getElementById('toastContainer');
+    if(!cont || !msg) return;
+    const t = document.createElement('div');
+    t.className = 'toast toast-' + tipo;
+    const icon = tipo === 'error' ? 'error' : (tipo === 'warning' ? 'warning' : 'info');
+    t.innerHTML = '<i class="material-icons">' + icon + '</i><span>' + escapeHtml(msg) + '</span>';
+    cont.appendChild(t);
+    setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 400); }, 6000);
 }
 
 // --- 6. GESTIÓN DE PANTALLA DE CARGA Y PROGRESO ---
@@ -279,3 +347,28 @@ function ocultarCarga() {
         }, 500);
     }
 }
+
+// --- 7. ATAJOS DE TECLADO ---
+document.addEventListener('keydown', (e) => {
+    if(document.getElementById('startupModal').style.display === 'flex') return;
+
+    if(e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const stackData = cornerstoneTools.getToolState(element, 'stack');
+        if(!stackData || !stackData.data || !stackData.data[0]) return;
+        const stack = stackData.data[0];
+        const total = stack.imageIds.length;
+        let idx = stack.currentImageIdIndex;
+        if(e.key === 'ArrowRight') idx = Math.min(total - 1, idx + 1);
+        else idx = Math.max(0, idx - 1);
+        stack.currentImageIdIndex = idx;
+        cornerstone.loadImage(stack.imageIds[idx]).then(img => {
+            cornerstone.displayImage(element, img);
+            updateOverlay(idx, total);
+        });
+        e.preventDefault();
+    } else if(e.key === 'r' || e.key === 'R') {
+        cornerstone.reset(element);
+    } else if(e.key === 'i' || e.key === 'I') {
+        accion('invert');
+    }
+});

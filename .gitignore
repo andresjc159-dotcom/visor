@@ -1,0 +1,19 @@
+# Secrets / environment
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Backups
+.backup_*/
+
+# Large installers / binaries
+*.deb
+
+# DICOM storage (patient data)
+static/dicom_storage/
+
+# Runtime sockets
+gunicorn.ctl

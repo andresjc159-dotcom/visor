@@ -1,83 +1,106 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>TRAUMA AI</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://unpkg.com/hammerjs@2.0.8/hammer.js"></script>
-    <script src="https://unpkg.com/dicom-parser"></script>
-    <script src="https://unpkg.com/cornerstone-core"></script>
-    <script src="https://unpkg.com/cornerstone-math"></script>
-    <script src="https://unpkg.com/cornerstone-wado-image-loader"></script>
-    <script src="https://unpkg.com/cornerstone-tools"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IRIS · Visión IA</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-    <div class="header">
-        <div class="brand">TRAUMA AI</div>
-        <div class="patient-data">
-            <div><span id="pName">---</span></div>
-            <div>ID: <span id="pId">---</span></div>
-            <div><span id="pAge">--</span> <span id="pSex">--</span></div>
-        </div>
-        <button onclick="toggleReport()" style="background:var(--accent); border:none; padding:5px 15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px; border-radius:3px;">
-            <i class="material-icons" style="font-size:1.1rem">notes</i> REPORTE
-        </button>
+  <header class="header">
+    <div class="brand">IRIS<span class="brand-sub">Visión IA</span></div>
+    <div class="patient-banner">
+      <div class="pb-name" id="pName">Paciente</div>
+      <div class="pb-meta">
+        <span class="pb-tag">ID</span><span id="pId">—</span><span class="pb-sep">|</span>
+        <span class="pb-tag">Sexo</span><span id="pSex">—</span><span class="pb-sep">|</span>
+        <span class="pb-tag">Edad</span><span id="pAge">—</span><span class="pb-sep">|</span>
+        <span class="pb-tag">FN</span><span id="pBirth">—</span>
+      </div>
+      <div class="pb-study">
+        <span id="studyDesc">—</span><span class="pb-sep">|</span>
+        <span class="pb-tag">Modalidad</span><span id="studyMod">—</span><span class="pb-sep">|</span>
+        <span id="studyDate">—</span><span class="pb-sep">|</span>
+        <span class="pb-tag">Acc</span><span id="studyAcc">—</span>
+      </div>
     </div>
-
-    <div class="toolbar">
-        <button class="tool-btn active" id="btn_Wwwc" onclick="activarHerramienta('Wwwc', this)" title="Contraste"><i class="material-icons">brightness_6</i></button>
-        <button class="tool-btn" id="btn_Zoom" onclick="activarHerramienta('Zoom', this)" title="Zoom"><i class="material-icons">zoom_in</i></button>
-        <button class="tool-btn" id="btn_Pan" onclick="activarHerramienta('Pan', this)" title="Mover"><i class="material-icons">open_with</i></button>
-        
-        <div style="width:1px; height:25px; background:#333; margin:0 5px;"></div>
-        
-        <button class="tool-btn" id="btn_Length" onclick="activarHerramienta('Length', this)" title="Medir Longitud"><i class="material-icons">straighten</i></button>
-        <button class="tool-btn" id="btn_Angle" onclick="activarHerramienta('Angle', this)" title="Medir Ángulo"><i class="material-icons">square_foot</i></button>
-        <button class="tool-btn" id="btn_Probe" onclick="activarHerramienta('Probe', this)" title="Valor del Píxel"><i class="material-icons">colorize</i></button>
-        <button class="tool-btn" id="btn_Eraser" onclick="activarHerramienta('Eraser', this)" title="Borrar Medición"><i class="material-icons">delete_sweep</i></button>
-
-        <div style="width:1px; height:25px; background:#333; margin:0 5px;"></div>
-
-        <button class="tool-btn" onclick="accion('invert')" title="Invertir"><i class="material-icons">invert_colors</i></button>
-        <button class="tool-btn" onclick="accion('reset')" title="Reiniciar"><i class="material-icons">restart_alt</i></button>
+    <div class="header-actions">
+      <button class="hdr-btn" id="btnSync" title="Sincronizar scroll entre vistas"><i class="material-icons">link</i></button>
+      <button class="hdr-btn accent" id="btnReport" title="Reporte IA"><i class="material-icons">notes</i> REPORTE</button>
+      <button class="hdr-btn" id="btnNew" title="Nuevo estudio"><i class="material-icons">folder_open</i></button>
     </div>
+  </header>
 
-    <div class="main">
-        <div class="sidebar" id="seriesList"></div>
-        <div class="viewer">
-            <div id="dicomImage" class="viewport" oncontextmenu="return false"></div>
-            <div class="overlay tl">TRAUMA AI</div>
-            <div class="overlay bl" id="overlaySlice">Img: -/-</div>
-        </div>
-        <div class="report-drawer" id="reportDrawer">
-            <div class="report-header">
-                HALLAZGOS
-                <i class="material-icons" style="cursor:pointer" onclick="toggleReport()">close</i>
-            </div>
-            <div class="report-content" id="aiContent">Cargando...</div>
-        </div>
+  <nav class="toolbar">
+    <div class="tb-group">
+      <button class="tb-btn active" data-layout="1x1" title="1 vista"><i class="material-icons">crop_square</i></button>
+      <button class="tb-btn" data-layout="1x2" title="2 vistas"><i class="material-icons">view_column</i></button>
+      <button class="tb-btn" data-layout="2x2" title="4 vistas"><i class="material-icons">grid_view</i></button>
     </div>
-
-    <div class="modal" id="startupModal">
-        <div class="modal-box">
-            <h3>Cargar Estudio</h3>
-            <input type="text" id="urlInput" placeholder="Enlace del visor...">
-            <button onclick="iniciarCargaManual()">PROCESAR</button>
-        </div>
+    <div class="tb-divider"></div>
+    <div class="tb-group">
+      <button class="tb-btn active" data-tool="WindowLevel" title="Ventana/Nivel"><i class="material-icons">brightness_6</i></button>
+      <button class="tb-btn" data-tool="Pan" title="Mover"><i class="material-icons">open_with</i></button>
+      <button class="tb-btn" data-tool="Zoom" title="Zoom"><i class="material-icons">zoom_in</i></button>
+      <button class="tb-btn" data-tool="Length" title="Longitud"><i class="material-icons">straighten</i></button>
+      <button class="tb-btn" data-tool="Angle" title="Ángulo"><i class="material-icons">square_foot</i></button>
+      <button class="tb-btn" data-tool="RectangleROI" title="ROI rectangular"><i class="material-icons">crop_5_4</i></button>
+      <button class="tb-btn" data-tool="EllipticalROI" title="ROI elíptico"><i class="material-icons">radio_button_unchecked</i></button>
+      <button class="tb-btn" data-tool="Probe" title="Densidad (HU)"><i class="material-icons">colorize</i></button>
+      <button class="tb-btn" data-tool="ArrowAnnotate" title="Anotación"><i class="material-icons">north_east</i></button>
+      <button class="tb-btn" data-tool="Eraser" title="Borrar medidas"><i class="material-icons">delete_sweep</i></button>
     </div>
-
-    <div id="loadingOverlay" class="loading-overlay" style="display:none;">
-        <div class="loader-content">
-            <div class="pulse-logo">TRAUMA AI</div>
-            <div class="loading-bar-container">
-                <div id="progressBar" class="loading-bar"></div>
-            </div>
-            <p id="loadingText" class="loading-text">Iniciando...</p>
-        </div>
+    <div class="tb-divider"></div>
+    <div class="tb-group">
+      <select id="presetSelect" class="tb-select">
+        <option value="">Presets WW/WL</option>
+      </select>
     </div>
+    <div class="tb-divider"></div>
+    <div class="tb-group">
+      <button class="tb-btn" id="btnCine" title="Cine (reproducción)"><i class="material-icons">play_circle</i></button>
+      <button class="tb-btn" id="btnInvert" title="Invertir"><i class="material-icons">invert_colors</i></button>
+      <button class="tb-btn" id="btnReset" title="Reiniciar vista"><i class="material-icons">restart_alt</i></button>
+    </div>
+  </nav>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <main class="main">
+    <aside class="sidebar">
+      <div class="sidebar-title">SERIES</div>
+      <div class="series-list" id="seriesList"></div>
+    </aside>
+    <section class="viewer">
+      <div class="viewport-grid layout-1x1" id="viewerGrid"></div>
+    </section>
+    <aside class="report-drawer" id="reportDrawer">
+      <div class="report-header">
+        <span>HALLAZGOS IA</span>
+        <i class="material-icons" id="btnReportClose" title="Cerrar">close</i>
+      </div>
+      <div class="report-content" id="aiContent">—</div>
+    </aside>
+  </main>
+
+  <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+    <div class="loader-content">
+      <div class="pulse-logo">IRIS</div>
+      <div class="loading-bar-container"><div id="progressBar" class="loading-bar"></div></div>
+      <p id="loadingText" class="loading-text">Iniciando...</p>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <div class="modal" id="startupModal">
+    <div class="modal-box">
+      <h3>Cargar Estudio</h3>
+      <input type="text" id="urlInput" placeholder="Study UID o URL del visor...">
+      <button id="btnProcesar">PROCESAR</button>
+    </div>
+  </div>
+
+  <script type="module" src="/static/cs3/viewer.js"></script>
 </body>
 </html>
